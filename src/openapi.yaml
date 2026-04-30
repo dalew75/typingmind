@@ -85,6 +85,23 @@ paths:
                   items:
                     type: string
                   example: ['group-id-1', 'group-id-2']
+                profile:
+                  type: object
+                  description: Optional user profile details.
+                  properties:
+                    firstName:
+                      type: string
+                      example: Ada
+                    lastName:
+                      type: string
+                      example: Lovelace
+                    profilePicURL:
+                      type: string
+                      example: https://example.com/avatar.png
+                    aboutMe:
+                      type: string
+                      example: Engineering
+                  additionalProperties: false
         required: true
       responses:
         '200':
