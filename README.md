@@ -80,11 +80,45 @@ To run the app locally on your device or private server:
 1. Clone the repo
 2. Install dependencies: `yarn install` or `npm install`
 3. Start the server: `yarn start` or `npm run start`
-4. App will run at `localhost:3000` by default.
+4. App will run at `http://localhost:3008` by default.
 
 Optionally, you can use any other static web server to host the `src` folder.
 
 **Note**: if you run the app on hostnames other than `localhost`, you must use HTTPS to make sure all app features work.
+
+
+## WebSocket chat updates
+
+The browser adapter in `src/typingmind-chat-bridge.js` subscribes to the NATS
+subject exposed by the WebSocket bridge URL in
+`src/typingmind-bridge-config.js`. The default is:
+
+```js
+window.TYPINGMIND_BRIDGE_CONFIG = Object.freeze({
+  url: 'wss://localhost:8081/update-chat',
+});
+```
+
+The bridge certificate must be trusted by the browser. Incoming JSON has this
+shape:
+
+```json
+{
+  "folder": "Notifications",
+  "chatId": "Daily Updates",
+  "message": "The import completed.",
+  "role": "assistant"
+}
+```
+
+- `folder` is optional and defaults to the root chat list.
+- `chatId` is the chat title and stable key within its folder.
+- `message` is appended without invoking an AI model.
+- `role` is optional and accepts `user` (default) or `assistant`.
+- Every delivery is appended; duplicate NATS deliveries are not deduplicated.
+
+Only one tab per browser profile holds the WebSocket subscription. Updates are
+stored in TypingMind's browser storage and appear after the next page reload.
 
 ## 🔗 Connect to local models
 
