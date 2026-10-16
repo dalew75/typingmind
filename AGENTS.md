@@ -13,6 +13,7 @@ This repository distributes the **compiled static self-host build of TypingMind*
 - Configuration is data-driven (model profiles, API keys, plugin settings); there is no dependency-injection container.
 - `src/sw.js` provides the PWA/offline cache path. `src/openapi.yaml` describes the remote TypingMind Custom API, not a local server.
 - `src/typingmind-chat-bridge.js` is a custom browser adapter: one tab holds a Web Lock, receives `update-chat` WebSocket messages, and appends them to `TM_useFolderList` in localStorage and `CHAT_<id>` records in IndexedDB. It never invokes a model; TypingMind reflects writes after reload.
+- `src/typingmind-model-bridge.js` uses the same pattern on `modelsUrl` (NATS subject `/typingmind.models`): it upserts/removes OpenAI-compatible entries in `TM_useCustomModels` (ids `nats-model-<id>`, `source: "NATS"`) and shows a Reload banner in every tab via `BroadcastChannel`.
 
 Do not patch hashed/minified files in `src/_next/static/`; functional UI or business-logic changes require an upstream TypingMind build.
 
@@ -23,7 +24,7 @@ Do not patch hashed/minified files in `src/_next/static/`; functional UI or busi
 - `src/assets/` — static provider, onboarding, and marketing assets.
 - `src/lib/audio-recorder/` — vendored compiled browser audio-recorder libraries.
 
-There are no upstream application source, test, script, CI, or server directories. The standalone `src/typingmind-chat-bridge.js` integration is maintained source.
+There are no upstream application source, test, script, CI, or server directories. The standalone `src/typingmind-chat-bridge.js` and `src/typingmind-model-bridge.js` integrations are maintained source.
 
 ## Development Commands
 
@@ -49,6 +50,7 @@ yarn start
 - Keep secrets out of the repository. License keys, provider keys, model profiles, and plugin settings are supplied in the browser.
 - Upstream architecture uses React/MobX state, browser persistence, streaming `fetch`, queues, translated errors/toasts, schema validation, and Sentry. These are architectural facts, not APIs available as editable source here.
 - The bridge payload is `{ folder?, chatId, message, role? }`; `role` is `user` or `assistant`, and repeated deliveries append repeatedly. Keep this boundary validation explicit.
+- The model payload is `{ action?, id, title, endpoint, modelID, apiKey?, contextLength?, description?, <capability booleans>? }`; `action` is `upsert` (default) or `remove`, upserts are idempotent, and removal is limited to `source: "NATS"` models.
 - No repository-level naming, formatting, error-handling, or test convention is configured. Avoid introducing tooling unless explicitly requested.
 
 ## Important Files
@@ -60,8 +62,9 @@ yarn start
 - `src/sw.js` — service worker/offline behavior.
 - `src/manifest.json` — PWA metadata.
 - `src/openapi.yaml` — remote TypingMind Custom API description.
-- `src/typingmind-bridge-config.js` — deployment-specific WebSocket bridge URL.
+- `src/typingmind-bridge-config.js` — deployment-specific WebSocket bridge URLs (`url`, `modelsUrl`).
 - `src/typingmind-chat-bridge.js` — `update-chat` validation, folder/chat persistence, reconnect, and single-tab ownership.
+- `src/typingmind-model-bridge.js` — model upsert/remove validation, `TM_useCustomModels` persistence, reload banner, reconnect, and single-tab ownership.
 - `README.md` — deployment, setup, local-model, and update workflow.
 - `LICENSE.md` — binding modification and redistribution restrictions.
 - `ACKNOWLEDGEMENT.md` — informational upstream dependency inventory.
@@ -80,7 +83,7 @@ No automated tests, fixtures, mocks, coverage tooling, or CI checks exist. Valid
 
 1. Run `npm ci` and `npm run start`.
 2. Open `http://localhost:3008/` and confirm the SPA loads without failed static assets.
-3. Exercise the affected browser path (for example, PWA metadata, offline behavior, or custom-model **Test** flow). For chat-bridge changes, send both `user` and `assistant` payloads through a WebSocket fixture, reload, and verify the folder/chat in the sidebar.
+3. Exercise the affected browser path (for example, PWA metadata, offline behavior, or custom-model **Test** flow). For chat-bridge changes, send both `user` and `assistant` payloads through a WebSocket fixture, reload, and verify the folder/chat in the sidebar. For model-bridge changes, publish upsert, repeat-upsert, and remove payloads, reload, and verify the model picker.
 4. For non-localhost deployments, repeat over HTTPS.
 
 Do not claim `npm test`, lint, coverage, or a source build passed; those commands are undefined in this repository.

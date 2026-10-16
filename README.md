@@ -95,12 +95,15 @@ subject exposed by the WebSocket bridge URL in
 
 ```js
 window.TYPINGMIND_BRIDGE_CONFIG = Object.freeze({
-  url: 'wss://localhost:8081/update-chat',
+  url: 'ws://localhost:8081/update-chat',
+  modelsUrl: 'ws://localhost:8081/typingmind.models',
 });
 ```
 
-The bridge certificate must be trusted by the browser. Incoming JSON has this
-shape:
+Match the scheme to the bridge: use `ws://` for a plain WebSocket bridge (the
+local `nats-bridge` on port 8081 is plain HTTP) and `wss://` only when the bridge
+serves TLS with a certificate the browser trusts. A page served over HTTPS can
+only connect to `wss://`. Incoming JSON has this shape:
 
 ```json
 {
@@ -119,6 +122,64 @@ shape:
 
 Only one tab per browser profile holds the WebSocket subscription. Updates are
 stored in TypingMind's browser storage and appear after the next page reload.
+
+## WebSocket model updates
+
+`src/typingmind-model-bridge.js` lets an external service (for example, one that
+provisions a GPU) add or remove OpenAI-compatible custom models. It connects to
+`modelsUrl`. The WebSocket bridge uses the URL path as the NATS subject
+**including the leading slash**, so publishers must use the subject
+`/typingmind.models`. If the bridge fans out every subject to every client
+tagged with `_subject`, messages whose `_subject` differs from the URL path are
+ignored. Over the bridge's HTTPS API, POST to
+`https://<host>:8443//typingmind.models` (note the double slash).
+
+```json
+{
+  "action": "upsert",
+  "id": "gpu-llama3-70b-a1",
+  "title": "Llama 3 70B (GPU a1)",
+  "endpoint": "https://a1.example.com/v1/chat/completions",
+  "modelID": "meta-llama/Llama-3-70B",
+  "apiKey": "optional bearer token",
+  "contextLength": 8192,
+  "description": "optional",
+  "visionSupported": false
+}
+```
+
+```json
+{ "action": "remove", "id": "gpu-llama3-70b-a1" }
+```
+
+To demo a new model becoming available, publish with the
+[NATS CLI](https://github.com/nats-io/natscli) (it reads the server from
+`NATS_URL`):
+
+```bash
+nats pub '/typingmind.models' '{"action":"upsert","id":"demo-gpu-1","title":"Demo Llama 3 70B (GPU 1)","endpoint":"https://demo-gpu-1.example.com/v1/chat/completions","modelID":"meta-llama/Llama-3-70B","contextLength":8192}'
+```
+
+And to demo it going away again:
+
+```bash
+nats pub '/typingmind.models' '{"action":"remove","id":"demo-gpu-1"}'
+```
+
+- `action` is optional and defaults to `upsert`. `id`, `title`, `endpoint`
+  (http/https), and `modelID` are required for an upsert.
+- Optional booleans: `pluginSupported`, `visionSupported`,
+  `systemMessageSupported`, `streamOutputSupported`, `thinkingSupported`,
+  `promptCachingSupported`.
+- Models are stored in `TM_useCustomModels` as `nats-model-<id>` and are marked
+  `source: "NATS"`. An upsert is idempotent. `remove` affects only models this
+  bridge created, never models you added by hand.
+- `apiKey` is sent as an `Authorization: Bearer` header and is stored in browser
+  storage.
+
+TypingMind reads custom models at startup, so after a change every open tab
+shows a banner with a **Reload** button. Upstream updates may overwrite
+`src/index.html`, so re-check the bridge `<script>` tags after `git pull`.
 
 ## 🔗 Connect to local models
 
