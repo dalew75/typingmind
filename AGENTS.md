@@ -14,6 +14,7 @@ This repository distributes the **compiled static self-host build of TypingMind*
 - `src/sw.js` provides the PWA/offline cache path. `src/openapi.yaml` describes the remote TypingMind Custom API, not a local server.
 - `src/typingmind-chat-bridge.js` is a custom browser adapter: one tab holds a Web Lock, receives `update-chat` WebSocket messages, and appends them to `TM_useFolderList` in localStorage and `CHAT_<id>` records in IndexedDB. It never invokes a model; TypingMind reflects writes after reload.
 - `src/typingmind-model-bridge.js` uses the same pattern on `modelsUrl` (NATS subject `/typingmind.models`): it upserts/removes OpenAI-compatible entries in `TM_useCustomModels` (ids `nats-model-<id>`, `source: "NATS"`) and shows a Reload banner in every tab via `BroadcastChannel`.
+- Both adapters were written for the retired `websockets-nats-bridge` (URL path = subject, HTTPS POST on 8443). The local `nats-bridge` on 8081 ignores the path and sends every subject to every client tagged `_subject`: the model bridge filters on it, the chat bridge doesn't yet. See the [migration notes](https://github.com/dalew75/nats-bridge/blob/main/docs/migrating-from-websockets-nats-bridge.md) before changing either adapter.
 
 Do not patch hashed/minified files in `src/_next/static/`; functional UI or business-logic changes require an upstream TypingMind build.
 

@@ -120,6 +120,12 @@ only connect to `wss://`. Incoming JSON has this shape:
 - `role` is optional and accepts `user` (default) or `assistant`.
 - Every delivery is appended; duplicate NATS deliveries are not deduplicated.
 
+> **Stale with `nats-bridge`:** the local bridge on 8081 ignores the URL path
+> and sends every NATS subject to every client, tagged `_subject`. This adapter
+> doesn't filter on `_subject` yet, so it receives every subject and appends any
+> message with a string `chatId` and `message`, whatever its subject. See the
+> [migration notes](https://github.com/dalew75/nats-bridge/blob/main/docs/migrating-from-websockets-nats-bridge.md).
+
 Only one tab per browser profile holds the WebSocket subscription. Updates are
 stored in TypingMind's browser storage and appear after the next page reload.
 
@@ -133,6 +139,11 @@ provisions a GPU) add or remove OpenAI-compatible custom models. It connects to
 tagged with `_subject`, messages whose `_subject` differs from the URL path are
 ignored. Over the bridge's HTTPS API, POST to
 `https://<host>:8443//typingmind.models` (note the double slash).
+
+> **Stale:** the HTTPS API on 8443 belonged to the retired
+> `websockets-nats-bridge`; the local `nats-bridge` has no HTTP API. Publish to
+> NATS directly (`nats pub`, below). See the
+> [migration notes](https://github.com/dalew75/nats-bridge/blob/main/docs/migrating-from-websockets-nats-bridge.md).
 
 ```json
 {
